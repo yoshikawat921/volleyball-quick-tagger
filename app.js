@@ -996,13 +996,17 @@ function playFilteredClips() {
     setReplayStatus("再生できる絞り込みタグがありません。");
     return;
   }
-  setReplayStatus("1秒後に再生");
+  setReplayStatus("3秒後に再生");
+  els.playerFrame.closest(".player-panel").scrollIntoView({
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    block: "start"
+  });
   state.replay.delayTimer = setTimeout(() => {
     state.replay.delayTimer = null;
     // Read the current selection again in case tags or filters changed while waiting.
     state.replay.tags = filteredTags();
     playReplayIndex(0);
-  }, 1000);
+  }, 3000);
 }
 
 function playReplayIndex(index) {

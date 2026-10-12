@@ -910,10 +910,20 @@ td:nth-child(5) {
 
 .table-scroll {
   flex: 1;
-  max-height: 390px;
+  --tag-row-height: 60px;
+  --tag-header-height: 36px;
+  max-height: calc(var(--tag-header-height) + 5 * var(--tag-row-height));
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
+}
+
+.table-scroll thead tr {
+  height: var(--tag-header-height);
+}
+
+.table-scroll tbody tr {
+  height: var(--tag-row-height);
 }
 
 .table-panel {
