@@ -166,7 +166,8 @@ function normalizeProject(project) {
           time: clamp(Number(tag.time) || 0, 0, Number.MAX_SAFE_INTEGER),
           team,
           play,
-          label: makeLabel(team, play)
+          label: makeLabel(team, play),
+          updatedAt: normalizeTagUpdatedAt(tag.updatedAt)
         };
       })
   };
@@ -193,7 +194,8 @@ function normalizeLegacySceneProject(project) {
           time: clamp(Number(scene.startSeconds) || 0, 0, Number.MAX_SAFE_INTEGER),
           team: "A",
           play,
-          label: makeLabel("A", play)
+          label: makeLabel("A", play),
+          updatedAt: normalizeTagUpdatedAt(scene.updatedAt)
         };
       })
   };
@@ -247,6 +249,24 @@ function formatTime(seconds) {
   const wholeSeconds = Math.floor(safeSeconds % 60);
   const tenths = Math.floor((safeSeconds % 1) * 10);
   return `${minutes}:${String(wholeSeconds).padStart(2, "0")}.${tenths}`;
+}
+
+// Store instants in UTC; display them in Japan regardless of the device timezone.
+function normalizeTagUpdatedAt(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function formatTagUpdatedAt(value) {
+  const normalized = normalizeTagUpdatedAt(value);
+  if (!normalized) return "—";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tokyo", year: "2-digit", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+  }).formatToParts(new Date(normalized));
+  const fields = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${fields.year}${fields.month}${fields.day}-${fields.hour}${fields.minute}${fields.second}`;
 }
 
 function parseTime(value) {
@@ -516,7 +536,8 @@ function addTag(team, play) {
     time: Number(getCurrentTime().toFixed(2)),
     team,
     play,
-    label: makeLabel(team, play)
+    label: makeLabel(team, play),
+    updatedAt: new Date().toISOString()
   };
 
   state.project.tags.push(tag);
@@ -561,6 +582,10 @@ function sortedTagsForTable() {
   const { key, direction } = state.tableSort;
   const directionMultiplier = direction === "desc" ? -1 : 1;
   return sortedTags().sort((a, b) => {
+    // Unknown legacy timestamps stay at the end in either sort direction.
+    if (key === "updatedAt" && Boolean(a.updatedAt) !== Boolean(b.updatedAt)) {
+      return a.updatedAt ? -1 : 1;
+    }
     const result = compareTagsByKey(a, b, key);
     return result === 0 ? a.time - b.time : result * directionMultiplier;
   });
@@ -568,7 +593,8 @@ function sortedTagsForTable() {
 
 function compareTagsByKey(a, b, key) {
   if (key === "time") return a.time - b.time;
-  if (key === "team") return (a.team || "").localeCompare(b.team || "");
+  if (key === "team") return getTeamButtonLabel(a.team).localeCompare(getTeamButtonLabel(b.team), "ja");
+  if (key === "updatedAt") return (a.updatedAt || "").localeCompare(b.updatedAt || "");
   if (key === "play") return playSortValue(a.play).localeCompare(playSortValue(b.play));
   return a.time - b.time;
 }
@@ -592,6 +618,7 @@ function updateTag(id, updates) {
   tag.team = tag.team === "A" || tag.team === "B" ? tag.team : "";
   tag.time = clamp(Number(tag.time) || 0, 0, Number.MAX_SAFE_INTEGER);
   tag.label = makeLabel(tag.team, tag.play);
+  tag.updatedAt = new Date().toISOString();
   saveProject();
   render();
 }
@@ -850,7 +877,14 @@ function renderTagTable() {
           <button type="button" data-action="delete" class="table-delete-button">削除</button>
         </div>
       </td>
+      <td class="updated-at-cell"></td>
     `;
+
+    row.querySelectorAll(".team-input option").forEach((option) => {
+      option.textContent = getTeamButtonLabel(option.value);
+    });
+    row.querySelector(".team-input").title = getTeamButtonLabel(tag.team);
+    row.querySelector(".updated-at-cell").textContent = formatTagUpdatedAt(tag.updatedAt);
 
     row.querySelector(".time-input").addEventListener("change", (event) => {
       updateTag(tag.id, { time: Number(parseTime(event.target.value).toFixed(2)) });
@@ -914,7 +948,7 @@ function setTableSort(key) {
     state.tableSort.direction = state.tableSort.direction === "asc" ? "desc" : "asc";
   } else {
     state.tableSort.key = key;
-    state.tableSort.direction = "asc";
+    state.tableSort.direction = key === "updatedAt" ? "desc" : "asc";
   }
   renderTagTable();
 }
