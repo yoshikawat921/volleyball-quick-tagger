@@ -273,6 +273,8 @@ td:nth-child(5) {
 
 .settings-actions {
   display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -572,8 +574,11 @@ td:nth-child(5) {
 }
 
 .playback-controls button {
+  aspect-ratio: 2 / 1;
+  width: 100%;
+  min-width: 0;
   font-size: 0.9rem;
-  min-height: 88px;
+  min-height: 0;
   padding: 0.55rem 0.25rem;
 }
 
@@ -701,7 +706,9 @@ td:nth-child(5) {
   display: grid;
   gap: 0.25rem;
   line-height: 1.2;
-  min-height: 160px;
+  aspect-ratio: 1;
+  width: 100%;
+  min-height: 0;
   position: relative;
   min-width: 0;
   padding: 0.75rem 0.4rem;
@@ -1002,7 +1009,7 @@ td:nth-child(5) {
   .settings-actions {
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: visible;
   }
 
@@ -1011,6 +1018,7 @@ td:nth-child(5) {
     font-size: 0.82rem;
     min-width: 0;
     padding: 0.65rem 0.35rem;
+    white-space: normal;
     width: 100%;
   }
 
@@ -1020,7 +1028,6 @@ td:nth-child(5) {
 
   .tag-actions button {
     font-size: 0.9rem;
-    min-height: 160px;
     min-width: 0;
     padding-inline: 0.35rem;
   }
@@ -1042,7 +1049,6 @@ td:nth-child(5) {
 
   .playback-controls button {
     font-size: 0.82rem;
-    min-height: 88px;
     padding: 0.45rem 0.15rem;
   }
 

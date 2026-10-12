@@ -44,7 +44,7 @@ const state = {
   recentlyAddedTimer: null,
   activeReplayTagId: "",
   replayStatusText: "停止中",
-  replay: { active: false, tags: [], index: 0, clipEnd: 0, timer: null },
+  replay: { active: false, tags: [], index: 0, clipEnd: 0, timer: null, delayTimer: null },
   courtChanged: false
 };
 
@@ -368,12 +368,14 @@ function clearLocalVideoSource() {
 }
 
 function seekBy(deltaSeconds) {
+  clearDelayedReplayTimer();
   if (!isPlaybackReady()) return;
   const nextTime = Math.max(0, getCurrentTime() + deltaSeconds);
   seekTo(nextTime);
 }
 
 function togglePlayPause() {
+  clearDelayedReplayTimer();
   if (!isPlaybackReady()) return;
   if (isLocalPlayback()) {
     if (els.localVideo.paused) {
@@ -442,6 +444,7 @@ function loadVideo() {
     setStatus("有効なYouTube URLまたは11文字の動画IDを入力してください。");
     return;
   }
+  stopReplay();
   if (isLocalPlayback()) {
     pauseCurrentVideo();
     clearLocalVideoSource();
@@ -581,7 +584,7 @@ function sortedTags(tags = state.project.tags) {
 function sortedTagsForTable() {
   const { key, direction } = state.tableSort;
   const directionMultiplier = direction === "desc" ? -1 : 1;
-  return sortedTags().sort((a, b) => {
+  return filteredTags().sort((a, b) => {
     // Unknown legacy timestamps stay at the end in either sort direction.
     if (key === "updatedAt" && Boolean(a.updatedAt) !== Boolean(b.updatedAt)) {
       return a.updatedAt ? -1 : 1;
@@ -833,7 +836,6 @@ function handleRangeKeydown(handleType, event) {
 function renderFilters() {
   els.playFilter.value = state.filters.play;
   els.teamFilter.value = state.filters.team;
-  els.totalTagsLabel.textContent = String(state.project.tags.length);
   renderReplaySummary();
 }
 
@@ -845,6 +847,7 @@ function renderReplaySummary() {
 
 function renderTagTable() {
   const tags = sortedTagsForTable();
+  els.totalTagsLabel.textContent = String(tags.length);
   els.tagTableBody.innerHTML = "";
   updateSortButtons();
 
@@ -967,6 +970,7 @@ function cueCurrentVideo() {
 }
 
 function playClip(tag, continueSequence = false) {
+  clearDelayedReplayTimer();
   if (!isPlaybackReady()) return;
   if (!isLocalPlayback() && tag.youtubeVideoId && tag.youtubeVideoId !== state.project.youtubeVideoId) {
     state.project.youtubeVideoId = tag.youtubeVideoId;
@@ -985,16 +989,24 @@ function playClip(tag, continueSequence = false) {
 }
 
 function playFilteredClips() {
-  const tags = filteredTags();
-  if (!tags.length) {
+  stopReplay();
+  state.replay.tags = [];
+  state.replay.index = 0;
+  if (!filteredTags().length) {
     setReplayStatus("再生できる絞り込みタグがありません。");
     return;
   }
-  state.replay.tags = tags;
-  playReplayIndex(0);
+  setReplayStatus("1秒後に再生");
+  state.replay.delayTimer = setTimeout(() => {
+    state.replay.delayTimer = null;
+    // Read the current selection again in case tags or filters changed while waiting.
+    state.replay.tags = filteredTags();
+    playReplayIndex(0);
+  }, 1000);
 }
 
 function playReplayIndex(index) {
+  clearDelayedReplayTimer();
   const tags = state.replay.tags.length ? state.replay.tags : filteredTags();
   if (!tags.length) {
     setReplayStatus("再生できる絞り込みタグがありません。");
@@ -1037,6 +1049,7 @@ function moveReplayBy(direction) {
 
 function stopReplay(message = "停止中") {
   state.replay.active = false;
+  clearDelayedReplayTimer();
   clearReplayTimer();
   pauseCurrentVideo();
   focusTagRow("", false);
@@ -1046,6 +1059,14 @@ function stopReplay(message = "停止中") {
 function stopReplayAndReset() {
   stopReplay();
   seekTo(0);
+}
+
+function clearDelayedReplayTimer() {
+  if (state.replay.delayTimer !== null) {
+    clearTimeout(state.replay.delayTimer);
+    state.replay.delayTimer = null;
+    setReplayStatus("停止中");
+  }
 }
 
 function clearReplayTimer() {
@@ -1241,7 +1262,7 @@ function clearSessionState() {
   clearLocalVideoSource();
   state.playbackMode = "youtube";
   state.filters = { play: "", team: "" };
-  state.replay = { active: false, tags: [], index: 0, clipEnd: 0, timer: null };
+  state.replay = { active: false, tags: [], index: 0, clipEnd: 0, timer: null, delayTimer: null };
   state.courtChanged = false;
   state.activeReplayTagId = "";
   state.recentlyAddedTagId = "";
@@ -1418,10 +1439,12 @@ function bindEvents() {
   els.playFilter.addEventListener("change", (event) => {
     state.filters.play = event.target.value;
     renderFilters();
+    renderTagTable();
   });
   els.teamFilter.addEventListener("change", (event) => {
     state.filters.team = event.target.value;
     renderFilters();
+    renderTagTable();
   });
   els.playFilteredButton.addEventListener("click", playFilteredClips);
   els.previousReplayButton.addEventListener("click", () => moveReplayBy(-1));
