@@ -82,7 +82,7 @@ p {
 }
 
 h1 {
-  font-size: clamp(1.8rem, 4vw, 3.4rem);
+  font-size: clamp(1.5rem, 3vw, 2rem);
   line-height: 1;
   margin-bottom: 0;
 }
@@ -216,7 +216,7 @@ td:nth-child(4) {
 .app-header,
 .app-shell {
   margin: 0 auto;
-  max-width: 1360px;
+  max-width: 860px;
 }
 
 .app-header {
@@ -224,7 +224,7 @@ td:nth-child(4) {
   display: flex;
   gap: 1rem;
   justify-content: space-between;
-  padding: 2rem 1rem 1rem;
+  padding: 1rem 1rem 0.75rem;
 }
 
 .app-shell {
@@ -259,8 +259,8 @@ td:nth-child(4) {
 }
 
 .settings-actions {
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .settings-actions button,
@@ -277,7 +277,7 @@ td:nth-child(4) {
   align-items: center;
   display: grid;
   gap: 0.45rem;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   min-height: 46px;
 }
 
@@ -285,7 +285,8 @@ td:nth-child(4) {
   background: var(--swatch-color);
   border: 2px solid var(--line);
   border-radius: 999px;
-  min-height: 2.35rem;
+  min-height: 24px;
+  height: 24px;
   min-width: 0;
   padding: 0;
   width: 100%;
@@ -429,20 +430,21 @@ td:nth-child(4) {
 
 .main-grid {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1.05fr) minmax(440px, 0.95fr);
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .left-column,
 .right-column {
-  display: grid;
-  gap: 1rem;
-  grid-template-rows: clamp(500px, 58.5vh, 560px) clamp(255px, 30vh, 300px);
-  min-width: 0;
+  display: contents;
 }
 
-.right-column {
-  align-content: start;
+.player-panel {
+  padding: 0.5rem;
+}
+
+.player-panel .section-heading {
+  margin-bottom: 0.4rem;
 }
 
 .tagging-panel,
@@ -450,7 +452,7 @@ td:nth-child(4) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .player-frame {
@@ -558,7 +560,7 @@ td:nth-child(4) {
 
 .playback-controls button {
   font-size: 0.9rem;
-  min-height: 44px;
+  min-height: 88px;
   padding: 0.55rem 0.25rem;
 }
 
@@ -576,7 +578,7 @@ td:nth-child(4) {
 }
 
 .play-pause-button {
-  background: var(--accent);
+  background: var(--sepia-soft);
   color: var(--ink);
   gap: 0.35rem;
 }
@@ -616,7 +618,6 @@ td:nth-child(4) {
 .table-delete-button,
 #loadVideoButton,
 #playFilteredButton,
-#delayedReplayButton,
 .file-button,
 .export-button {
   background: var(--sepia-soft);
@@ -627,7 +628,6 @@ td:nth-child(4) {
 .table-delete-button:hover,
 #loadVideoButton:hover,
 #playFilteredButton:hover,
-#delayedReplayButton:hover,
 .file-button:hover,
 .export-button:hover {
   background: var(--accent-dark);
@@ -637,7 +637,6 @@ td:nth-child(4) {
 .table-delete-button:active,
 #loadVideoButton:active,
 #playFilteredButton:active,
-#delayedReplayButton:active,
 .file-button:active,
 .export-button:active {
   background: var(--accent-dark);
@@ -679,9 +678,8 @@ td:nth-child(4) {
 
 .tag-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 0.75rem;
-  row-gap: 0.55rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
   margin-top: 0;
 }
 
@@ -690,8 +688,11 @@ td:nth-child(4) {
   display: grid;
   gap: 0.25rem;
   line-height: 1.2;
-  min-height: 74px;
-  padding-block: 0.75rem;
+  min-height: 160px;
+  position: relative;
+  min-width: 0;
+  padding: 0.75rem 0.4rem;
+  align-content: center;
   transition: box-shadow 120ms ease, filter 120ms ease, transform 120ms ease;
 }
 
@@ -704,9 +705,8 @@ td:nth-child(4) {
 
 .tag-actions button span:last-child {
   font-size: 0.82rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .serve-button {
@@ -740,22 +740,50 @@ td:nth-child(4) {
 
 .tag-actions .serve-button.tag-pressed,
 .tag-actions .spike-button.tag-pressed {
-  box-shadow: 0 0 0 5px var(--green-mid), 0 8px 18px rgba(0, 0, 0, 0.22);
-  filter: brightness(1.12);
-  transform: scale(0.96);
+  border-color: #184c33;
+  box-shadow: inset 0 0 0 4px #f5d64b, 0 0 0 3px #184c33;
+  filter: none;
+  animation: tag-confirm 800ms ease-out;
+}
+
+.tag-actions .tag-pressed::after {
+  background: #184c33;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  color: #ffffff;
+  content: "✓ 記録";
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.25rem 0.4rem;
+  position: absolute;
+  right: 0.4rem;
+  top: 0.3rem;
+  pointer-events: none;
+}
+
+@keyframes tag-confirm {
+  0%, 20% { transform: scale(0.96); }
+  45%, 100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-actions button { transition: none; }
+  .tag-actions .serve-button.tag-pressed,
+  .tag-actions .spike-button.tag-pressed { animation: none; }
 }
 
 .tag-actions .court-change-button {
   background: var(--sepia-soft);
   color: var(--ink);
-  font-size: 0.82rem;
-  grid-column: 1 / -1;
-  justify-self: center;
-  line-height: 1;
-  min-height: 38px;
-  min-width: 8.6rem;
-  padding: 0.6rem 0.8rem;
-  width: min(11rem, 62%);
+  font-size: 1.08rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.tag-actions .court-change-button .court-change-label {
+  font-size: inherit;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .tag-actions .court-change-button:hover {
@@ -780,11 +808,10 @@ td:nth-child(4) {
 
 .replay-controls {
   display: grid;
-  grid-template-columns: 1.25fr 1.25fr 0.8fr 0.8fr 0.8fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 #playFilteredButton,
-#delayedReplayButton,
 #previousReplayButton,
 #nextReplayButton,
 #stopReplayButton {
@@ -793,7 +820,7 @@ td:nth-child(4) {
 
 .replay-panel .button-row button {
   font-size: 0.86rem;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.55rem 0.4rem;
   white-space: nowrap;
 }
@@ -863,7 +890,7 @@ td:nth-child(4) {
 
 .table-scroll {
   flex: 1;
-  max-height: none;
+  max-height: 390px;
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
@@ -952,114 +979,6 @@ td:nth-child(4) {
   width: 1px;
 }
 
-@media (min-width: 901px) and (max-width: 1220px) and (orientation: landscape) {
-  .app-shell,
-  .app-header {
-    max-width: 1180px;
-    padding-inline: 0.75rem;
-  }
-
-  .main-grid {
-    gap: 0.75rem;
-    grid-template-columns: minmax(0, 1.08fr) minmax(390px, 0.92fr);
-  }
-
-  .left-column,
-  .right-column {
-    gap: 0.75rem;
-    grid-template-rows: clamp(430px, 56vh, 500px) clamp(245px, 29vh, 285px);
-  }
-
-  .panel {
-    padding: 0.8rem;
-  }
-
-  .section-heading {
-    margin-bottom: 0.75rem;
-  }
-
-  .playback-controls {
-    gap: 0.35rem;
-    margin-top: 0.65rem;
-  }
-
-  .playback-controls button {
-    min-height: 40px;
-    padding-block: 0.45rem;
-  }
-
-  .tag-actions {
-    column-gap: 0.65rem;
-    row-gap: 0.5rem;
-    margin-top: 0;
-  }
-
-  .filter-grid {
-    gap: 0.45rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .table-scroll {
-    flex: 1;
-    max-height: none;
-    min-height: 0;
-  }
-}
-
-@media (max-width: 900px), (max-width: 1220px) and (orientation: portrait) {
-  .app-header,
-  .main-grid {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .main-grid {
-    grid-template-areas:
-      "video"
-      "tagging"
-      "table"
-      "replay";
-  }
-
-  .left-column,
-  .right-column {
-    display: contents;
-  }
-
-  .player-panel {
-    grid-area: video;
-  }
-
-  .table-panel {
-    grid-area: table;
-  }
-
-  .tagging-panel {
-    grid-area: tagging;
-  }
-
-  .replay-panel {
-    grid-area: replay;
-  }
-
-  .tagging-panel,
-  .replay-panel {
-    overflow: visible;
-  }
-
-  .table-scroll {
-    flex: initial;
-    max-height: 390px;
-    min-height: 260px;
-  }
-
-}
-
 @media (max-width: 680px) {
   .settings-grid,
   .drive-sync-grid,
@@ -1083,40 +1002,24 @@ td:nth-child(4) {
   }
 
   .tag-actions {
-    column-gap: 0.6rem;
-    row-gap: 0.45rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
   }
 
   .tag-actions button {
     font-size: 0.9rem;
-    min-height: 70px;
+    min-height: 160px;
     min-width: 0;
     padding-inline: 0.35rem;
   }
 
+  .tag-actions button span:first-child {
+    font-size: 0.82rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .tag-actions .court-change-button {
-    font-size: 0.78rem;
-    min-height: 38px;
-    min-width: 7.6rem;
-    padding-inline: 0.55rem;
-    width: min(9.5rem, 68%);
-  }
-
-  .replay-controls {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  #playFilteredButton,
-  #delayedReplayButton {
-    grid-column: span 3;
-  }
-
-  #previousReplayButton,
-  #nextReplayButton,
-  #stopReplayButton {
-    grid-column: span 2;
+    font-size: 0.82rem;
   }
 
   .playback-controls {
@@ -1126,7 +1029,7 @@ td:nth-child(4) {
 
   .playback-controls button {
     font-size: 0.82rem;
-    min-height: 40px;
+    min-height: 88px;
     padding: 0.45rem 0.15rem;
   }
 

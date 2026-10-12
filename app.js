@@ -6,7 +6,8 @@ const DRIVE_SAVE_DELAY_MS = 2500;
 const DEFAULT_DRIVE_WEB_APP_URL = "";
 const DEFAULT_DRIVE_FOLDER_ID = "";
 const DEFAULT_TEAM_COLORS = { A: "#ffffff", B: "#ffffff" };
-const TEAM_COLOR_PRESETS = ["#ffffff", "#1f2623", "#145fa8", "#9c3b1c", "#176f5d", "#f1c84b", "#6f4aa8", "#e986aa", "#68c7df", "#f28c28"];
+const TEAM_COLOR_PRESETS = ["#ffffff", "#1f2623", "#182b50", "#145fa8", "#68c7df", "#176f5d", "#f1c84b", "#f28c28", "#c4473a", "#7b263e", "#e986aa", "#6f4aa8"];
+const quickTagFeedbackTimers = new WeakMap();
 
 const defaultProject = {
   projectId: "",
@@ -31,17 +32,19 @@ const state = {
   },
   filters: { play: "", team: "" },
   tableSort: { key: "time", direction: "desc" },
-  preRoll: 4,
+  preRoll: 1,
   postRoll: 1,
   playbackMode: "youtube",
   localVideo: { url: "", name: "", ready: false },
   player: null,
   playerReady: false,
+  syncedVideoTitle: "",
+  pendingTeamNamesVideoId: "",
   recentlyAddedTagId: "",
   recentlyAddedTimer: null,
   activeReplayTagId: "",
   replayStatusText: "停止中",
-  replay: { active: false, tags: [], index: 0, clipEnd: 0, timer: null, delayTimer: null },
+  replay: { active: false, tags: [], index: 0, clipEnd: 0, timer: null },
   courtChanged: false
 };
 
@@ -91,7 +94,6 @@ const els = {
   afterHandle: document.querySelector("#afterHandle"),
   replaySummaryLabel: document.querySelector("#replaySummaryLabel"),
   playFilteredButton: document.querySelector("#playFilteredButton"),
-  delayedReplayButton: document.querySelector("#delayedReplayButton"),
   previousReplayButton: document.querySelector("#previousReplayButton"),
   nextReplayButton: document.querySelector("#nextReplayButton"),
   stopReplayButton: document.querySelector("#stopReplayButton"),
@@ -211,6 +213,7 @@ function normalizeTeamName(value, team) {
 
 function normalizeTeamColor(value, team) {
   const color = String(value || "").trim().toLowerCase();
+  if (color === "#9c3b1c") return "#c4473a"; // Migrate the retired red in saved projects.
   if (TEAM_COLOR_PRESETS.includes(color)) return color;
   return DEFAULT_TEAM_COLORS[team];
 }
@@ -395,7 +398,6 @@ function toggleFullscreen() {
 function applySettingsFromInputs() {
   const videoId = extractYouTubeId(els.youtubeInput.value) || state.project.youtubeVideoId;
   const videoChanged = videoId && videoId !== state.project.youtubeVideoId;
-  state.project.youtubeVideoId = videoId;
   state.project.teams.A.name = els.teamANameInput.value.trim();
   state.project.teams.B.name = els.teamBNameInput.value.trim();
   state.project.teams.A.color = normalizeTeamColor(state.project.teams.A.color, "A");
@@ -425,6 +427,11 @@ function loadVideo() {
     clearLocalVideoSource();
   }
   state.playbackMode = "youtube";
+  if (videoId !== state.project.youtubeVideoId) {
+    state.pendingTeamNamesVideoId = videoId;
+    state.syncedVideoTitle = "";
+    state.project.projectName = "";
+  }
   state.project.youtubeVideoId = videoId;
   if (state.project.projectName === "動画タイトル取得中") {
     state.project.projectName = "";
@@ -464,14 +471,38 @@ function scheduleVideoTitleSync() {
   setTimeout(updateVideoTitleFromPlayer, 2500);
 }
 
+function extractTeamNamesFromTitle(title) {
+  // Match the team tokens next to vs, allowing Japanese/full-width spacing.
+  const normalized = String(title || "").replace(/[ｖＶ]/g, "v").replace(/[ｓＳ]/g, "s");
+  const match = normalized.match(/([^\s【】「」()（）|｜]+?)\s*vs\.?\s*([^\s【】「」()（）|｜]+)/i);
+  return match ? { A: match[1], B: match[2] } : null;
+}
+
 function updateVideoTitleFromPlayer() {
   if (isLocalPlayback()) return;
   if (!state.playerReady || !state.player?.getVideoData) return;
-  const title = state.player.getVideoData()?.title?.trim();
-  if (!title || title === state.project.projectName) return;
+  const videoData = state.player.getVideoData();
+  // A delayed callback can still contain the previously cued video's title.
+  if (videoData?.video_id !== state.project.youtubeVideoId) return;
+  const title = videoData.title?.trim();
+  const syncKey = `${videoData.video_id}:${title}`;
+  if (!title || syncKey === state.syncedVideoTitle) return;
+  state.syncedVideoTitle = syncKey;
+  const previousNames = extractTeamNamesFromTitle(state.project.projectName);
+  const names = extractTeamNamesFromTitle(title);
+  if (names) {
+    ["A", "B"].forEach((team) => {
+      const currentName = state.project.teams[team].name;
+      if (state.pendingTeamNamesVideoId === videoData.video_id || !currentName || currentName === previousNames?.[team]) {
+        state.project.teams[team].name = names[team];
+      }
+    });
+    state.project.tags.forEach((tag) => { tag.label = makeLabel(tag.team, tag.play); });
+  }
+  state.pendingTeamNamesVideoId = "";
   state.project.projectName = title;
   saveProject();
-  renderSettings();
+  render();
 }
 
 function addTag(team, play) {
@@ -497,11 +528,15 @@ function addTag(team, play) {
 }
 
 function showQuickTagFeedback(button) {
+  clearTimeout(quickTagFeedbackTimers.get(button));
   button.classList.remove("tag-pressed");
-  requestAnimationFrame(() => {
-    button.classList.add("tag-pressed");
-    setTimeout(() => button.classList.remove("tag-pressed"), 220);
-  });
+  // Restart the pulse on every successful tag, including rapid repeated taps.
+  void button.offsetWidth;
+  button.classList.add("tag-pressed");
+  quickTagFeedbackTimers.set(button, setTimeout(() => {
+    button.classList.remove("tag-pressed");
+    quickTagFeedbackTimers.delete(button);
+  }, 800));
 }
 
 function markRecentlyAddedTag(tagId) {
@@ -654,7 +689,7 @@ function getCourtLayout() {
 
 function getTeamButtonLabel(team) {
   const name = state.project.teams[team]?.name || "";
-  return name ? `${team}：${name}` : team;
+  return name || team;
 }
 
 function getReadableTextColor(hexColor) {
@@ -916,7 +951,6 @@ function playClip(tag, continueSequence = false) {
 }
 
 function playFilteredClips() {
-  clearDelayedReplayTimer();
   const tags = filteredTags();
   if (!tags.length) {
     setReplayStatus("再生できる絞り込みタグがありません。");
@@ -924,20 +958,6 @@ function playFilteredClips() {
   }
   state.replay.tags = tags;
   playReplayIndex(0);
-}
-
-function playFilteredClipsAfterDelay() {
-  clearDelayedReplayTimer();
-  const tags = filteredTags();
-  if (!tags.length) {
-    setReplayStatus("再生できる絞り込みタグがありません。");
-    return;
-  }
-  setReplayStatus("10秒後再生");
-  state.replay.delayTimer = setTimeout(() => {
-    state.replay.delayTimer = null;
-    playFilteredClips();
-  }, 10000);
 }
 
 function playReplayIndex(index) {
@@ -983,7 +1003,6 @@ function moveReplayBy(direction) {
 
 function stopReplay(message = "停止中") {
   state.replay.active = false;
-  clearDelayedReplayTimer();
   clearReplayTimer();
   pauseCurrentVideo();
   focusTagRow("", false);
@@ -999,13 +1018,6 @@ function clearReplayTimer() {
   if (state.replay.timer) {
     clearInterval(state.replay.timer);
     state.replay.timer = null;
-  }
-}
-
-function clearDelayedReplayTimer() {
-  if (state.replay.delayTimer) {
-    clearTimeout(state.replay.delayTimer);
-    state.replay.delayTimer = null;
   }
 }
 
@@ -1188,6 +1200,8 @@ async function partialResetProject() {
 }
 
 function clearSessionState() {
+  state.syncedVideoTitle = "";
+  state.pendingTeamNamesVideoId = "";
   stopReplay("停止中");
   stopCurrentVideo();
   clearLocalVideoSource();
@@ -1288,6 +1302,8 @@ async function importProject(file) {
   if (!file) return;
   const text = await file.text();
   state.project = normalizeProject(JSON.parse(text));
+  state.syncedVideoTitle = "";
+  state.pendingTeamNamesVideoId = "";
   state.filters = { play: "", team: "" };
     stopReplay("停止中");
   cueCurrentVideo();
@@ -1374,7 +1390,6 @@ function bindEvents() {
     renderFilters();
   });
   els.playFilteredButton.addEventListener("click", playFilteredClips);
-  els.delayedReplayButton.addEventListener("click", playFilteredClipsAfterDelay);
   els.previousReplayButton.addEventListener("click", () => moveReplayBy(-1));
   els.nextReplayButton.addEventListener("click", () => moveReplayBy(1));
   els.stopReplayButton.addEventListener("click", stopReplayAndReset);
