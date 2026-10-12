@@ -898,8 +898,15 @@ function renderTagTable() {
     row.querySelector(".play-input").addEventListener("change", (event) => {
       updateTag(tag.id, { play: event.target.value });
     });
-    row.querySelector('[data-action="seek"]').addEventListener("click", () => {
-      playClip(tag);
+    const replayFromRowButton = row.querySelector('[data-action="seek"]');
+    replayFromRowButton.title = state.filters.team || state.filters.play
+      ? "このタグから絞り込み連続再生" : "このタグを再生";
+    replayFromRowButton.addEventListener("click", () => {
+      if (state.filters.team || state.filters.play) {
+        playFilteredClips(tag.id);
+      } else {
+        playClip(tag);
+      }
     });
     row.querySelector('[data-action="delete"]').addEventListener("click", () => {
       if (confirm(`${formatTime(tag.time)} の ${tag.label} を削除しますか？`)) deleteTag(tag.id);
@@ -988,7 +995,7 @@ function playClip(tag, continueSequence = false) {
   }
 }
 
-function playFilteredClips() {
+function playFilteredClips(startTagId = "") {
   stopReplay();
   state.replay.tags = [];
   state.replay.index = 0;
@@ -1005,7 +1012,13 @@ function playFilteredClips() {
     state.replay.delayTimer = null;
     // Read the current selection again in case tags or filters changed while waiting.
     state.replay.tags = filteredTags();
-    playReplayIndex(0);
+    const startIndex = startTagId
+      ? state.replay.tags.findIndex((tag) => tag.id === startTagId) : 0;
+    if (startIndex < 0) {
+      setReplayStatus("開始タグが絞り込み対象にありません。");
+      return;
+    }
+    playReplayIndex(startIndex);
   }, 3000);
 }
 
@@ -1450,7 +1463,7 @@ function bindEvents() {
     renderFilters();
     renderTagTable();
   });
-  els.playFilteredButton.addEventListener("click", playFilteredClips);
+  els.playFilteredButton.addEventListener("click", () => playFilteredClips());
   els.previousReplayButton.addEventListener("click", () => moveReplayBy(-1));
   els.nextReplayButton.addEventListener("click", () => moveReplayBy(1));
   els.stopReplayButton.addEventListener("click", stopReplayAndReset);
